@@ -290,6 +290,7 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+  safestrcpy(np->mask, p->mask, sizeof(p->mask));
 
   pid = np->pid;
 
@@ -692,4 +693,15 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+int
+proc_num(void)
+{
+  struct proc *p;
+  uint64 num=0;
+  for(p=proc;p<&proc[NPROC];p++){
+    if(p->state!=UNUSED)
+      num++;
+  }
+  return num;
 }
