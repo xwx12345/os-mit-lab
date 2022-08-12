@@ -47,8 +47,11 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
+  myproc()->sz += n; 
+  if (n < 0)// n小于0的情况为释放内存，立即执行
+    uvmdealloc(myproc()->pagetable, addr, myproc()->sz);
+  //if(growproc(n) < 0)
+  //  return -1;
   return addr;
 }
 
