@@ -17,6 +17,8 @@ struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
 
+pthread_mutex_t lock[NKEYS]; // declare a lock
+
 double
 now()
 {
@@ -39,7 +41,9 @@ static
 void put(int key, int value)
 {
   int i = key % NBUCKET;
-
+  
+  pthread_mutex_lock(&lock[i]); // acquire lock
+  
   // is the key already present?
   struct entry *e = 0;
   for (e = table[i]; e != 0; e = e->next) {
@@ -53,6 +57,9 @@ void put(int key, int value)
     // the new is new.
     insert(key, value, &table[i], table[i]);
   }
+  
+  pthread_mutex_unlock(&lock[i]); // release lock
+  
 }
 
 static struct entry*
@@ -75,7 +82,8 @@ put_thread(void *xa)
   int n = (int) (long) xa; // thread number
   int b = NKEYS/nthread;
 
-  for (int i = 0; i < b; i++) {
+  int i;
+  for (i = 0; i < b; i++) {
     put(keys[b*n + i], n);
   }
 
@@ -88,7 +96,8 @@ get_thread(void *xa)
   int n = (int) (long) xa; // thread number
   int missing = 0;
 
-  for (int i = 0; i < NKEYS; i++) {
+  int i;
+  for (i = 0; i < NKEYS; i++) {
     struct entry *e = get(keys[i]);
     if (e == 0) missing++;
   }
@@ -111,18 +120,20 @@ main(int argc, char *argv[])
   tha = malloc(sizeof(pthread_t) * nthread);
   srandom(0);
   assert(NKEYS % nthread == 0);
-  for (int i = 0; i < NKEYS; i++) {
+  int i;
+  for (i = 0; i < NKEYS; i++) {
     keys[i] = random();
+    pthread_mutex_init(&lock[i], NULL); // initialize the lock
   }
 
   //
   // first the puts
   //
   t0 = now();
-  for(int i = 0; i < nthread; i++) {
+  for(i = 0; i < nthread; i++) {
     assert(pthread_create(&tha[i], NULL, put_thread, (void *) (long) i) == 0);
   }
-  for(int i = 0; i < nthread; i++) {
+  for(i = 0; i < nthread; i++) {
     assert(pthread_join(tha[i], &value) == 0);
   }
   t1 = now();
@@ -134,10 +145,10 @@ main(int argc, char *argv[])
   // now the gets
   //
   t0 = now();
-  for(int i = 0; i < nthread; i++) {
+  for(i = 0; i < nthread; i++) {
     assert(pthread_create(&tha[i], NULL, get_thread, (void *) (long) i) == 0);
   }
-  for(int i = 0; i < nthread; i++) {
+  for(i = 0; i < nthread; i++) {
     assert(pthread_join(tha[i], &value) == 0);
   }
   t1 = now();
